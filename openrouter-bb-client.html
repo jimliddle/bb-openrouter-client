@@ -1,0 +1,475 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OpenRouter Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-size: 14px;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            padding: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #101010; /* OpenRouter style dark background */
+            color: #EAEAEA; /* OpenRouter style light text */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #headerSection {
+            background: #1A1A1A; /* OpenRouter header dark tone */
+            border-radius: 8px;
+            border: 1px solid #2A2A2A;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            padding: 10px;
+            flex-shrink: 0;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .key-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            background: #444;
+            margin-right: 8px;
+        }
+        .key-indicator.active {
+            background: #30D158; /* OpenRouter style green */
+        }
+        .reset-link {
+            color: #FF453A; /* OpenRouter style red */
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        #apiKeyInput {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-top: 5px;
+            background: #202020;
+            color: #EAEAEA;
+        }
+        #modelSelector {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-top: 5px;
+            
+            /* --- FIX FOR BLACKBERRY PASSPORT --- */
+            /* Force a standard high-contrast theme to ensure selected text is visible */
+            background-color: #FFFFFF;
+            color: #000000;
+            /* --- END FIX --- */
+        }
+        #mainContainer {
+            background: #1A1A1A; /* OpenRouter dark tone */
+            border: 1px solid #2A2A2A;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #messageHistory {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #2A2A2A;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            min-height: 0;
+            background: #101010;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            position: relative;
+            word-wrap: break-word;
+            max-width: 90%;
+        }
+        .user-message {
+            background: #0A84FF; /* OpenRouter style blue */
+            color: #fff;
+            margin-left: auto;
+            text-align: right;
+        }
+        .assistant-message {
+            background: #2D2D2D; /* OpenRouter style gray */
+            color: #EAEAEA;
+            margin-right: auto;
+        }
+        .status-message {
+            background: transparent;
+            text-align: center;
+            font-style: italic;
+            color: #888;
+        }
+        #inputSection {
+            flex-shrink: 0;
+            margin-top: auto;
+        }
+        #inputRow {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        #userInput {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            height: 40px;
+            background: #202020;
+            color: #EAEAEA;
+        }
+        #sendButton {
+            padding: 8px 16px;
+            background: #0A84FF; /* OpenRouter blue button */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 70px;
+            height: 40px;
+        }
+        button:disabled {
+            background: #444;
+        }
+        #actionLinks {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            font-size: 12px;
+        }
+        .action-link {
+            color: #0A84FF; /* OpenRouter blue */
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .action-link.delete {
+            color: #FF453A; /* OpenRouter red */
+        }
+        .loading #mainContainer {
+            opacity: 0.6;
+        }
+        #loadingIndicator {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+        .loading #loadingIndicator {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="headerSection">
+        <div class="status-row">
+            <div>
+                <span class="key-indicator" id="keyIndicator"></span>
+                <span>API Key Status</span>
+            </div>
+            <span class="reset-link" onclick="if(confirm('Reset API key?')){localStorage.removeItem('openrouter_chat_apikey_v1');document.getElementById('apiKeyInput').style.display='block';document.getElementById('keyIndicator').classList.remove('active');document.getElementById('apiKeyInput').value='';}">Reset Key</span>
+        </div>
+        <input type="password" id="apiKeyInput" placeholder="Enter your OpenRouter API key"
+               onchange="if(this.value.trim()){localStorage.setItem('openrouter_chat_apikey_v1',this.value.trim());document.getElementById('keyIndicator').classList.add('active');this.style.display='none';}">
+        <select id="modelSelector">
+            <option>Loading models...</option>
+        </select>
+    </div>
+
+    <div id="mainContainer">
+        <div id="messageHistory"></div>
+        <div id="inputSection">
+            <div id="inputRow">
+                <input type="text" id="userInput" placeholder="Type your message...">
+                <button id="sendButton" onclick="sendMessage()">Send</button>
+            </div>
+            <div id="actionLinks">
+                <a class="action-link delete" onclick="clearAllMessages()">Clear all messages</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingIndicator">Sending...</div>
+
+    <script>
+    // Constants for localStorage keys
+    var API_KEY_ID = 'openrouter_chat_apikey_v1';
+    var HISTORY_ID = 'openrouter_chat_history_v1';
+    var MODEL_ID = 'openrouter_chat_model_v1';
+
+    // Get DOM elements
+    var apiKeyInput = document.getElementById('apiKeyInput');
+    var keyIndicator = document.getElementById('keyIndicator');
+    var modelSelector = document.getElementById('modelSelector');
+
+    // --- NEW: Function to fetch and populate models ---
+    function fetchModels() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://openrouter.ai/api/v1/models', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                modelSelector.innerHTML = ''; // Clear "Loading..."
+                if (xhr.status === 200) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        var models = response.data;
+                        // Sort models alphabetically by name
+                        models.sort(function(a, b) {
+                            var nameA = a.name.toUpperCase();
+                            var nameB = b.name.toUpperCase();
+                            if (nameA < nameB) return -1;
+                            if (nameA > nameB) return 1;
+                            return 0;
+                        });
+
+                        models.forEach(function(model) {
+                            var option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            modelSelector.appendChild(option);
+                        });
+
+                        // Restore saved model selection
+                        var savedModel = localStorage.getItem(MODEL_ID);
+                        if (savedModel) {
+                            modelSelector.value = savedModel;
+                        }
+
+                    } catch (e) {
+                        var option = document.createElement('option');
+                        option.textContent = 'Error loading models';
+                        modelSelector.appendChild(option);
+                    }
+                } else {
+                    var option = document.createElement('option');
+                    option.textContent = 'Failed to fetch models';
+                    modelSelector.appendChild(option);
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    // Initial setup
+    function init() {
+        // Fetch models from API
+        fetchModels();
+
+        // Check for saved API key
+        if(localStorage.getItem(API_KEY_ID)) {
+            apiKeyInput.style.display = 'none';
+            keyIndicator.classList.add('active');
+        } else {
+            apiKeyInput.style.display = 'block';
+            keyIndicator.classList.remove('active');
+        }
+
+        // Save model on change
+        modelSelector.onchange = function() {
+            localStorage.setItem(MODEL_ID, modelSelector.value);
+        };
+
+        // Load existing messages
+        loadMessageHistory();
+    }
+
+
+    // Load existing messages
+    var messageHistory = [];
+    function loadMessageHistory() {
+        try {
+            var saved = localStorage.getItem(HISTORY_ID);
+            if(saved) {
+                messageHistory = JSON.parse(saved);
+                var historyDiv = document.getElementById('messageHistory');
+                historyDiv.innerHTML = ''; // Clear existing
+                messageHistory.forEach(function(msg) {
+                    appendMessageToDOM(msg.role, msg.content);
+                });
+                scrollToBottom();
+            }
+        } catch(e) {
+            addStatusMessage('Error loading message history');
+            localStorage.removeItem(HISTORY_ID);
+            messageHistory = [];
+        }
+    }
+
+    function appendMessageToDOM(role, content) {
+        var div = document.createElement('div');
+        div.className = 'message ' + role + '-message';
+        div.textContent = content;
+        document.getElementById('messageHistory').appendChild(div);
+    }
+
+    function addStatusMessage(text) {
+        var div = document.createElement('div');
+        div.className = 'message status-message';
+        div.textContent = text;
+        document.getElementById('messageHistory').appendChild(div);
+        scrollToBottom();
+    }
+
+    function addMessage(role, content) {
+        appendMessageToDOM(role, content);
+        scrollToBottom();
+
+        messageHistory.push({role: role, content: content});
+        try {
+            localStorage.setItem(HISTORY_ID, JSON.stringify(messageHistory));
+        } catch(e) {
+            addStatusMessage('Error saving messages - clearing old history');
+            messageHistory = messageHistory.slice(-10); // Prune history if storage is full
+            localStorage.setItem(HISTORY_ID, JSON.stringify(messageHistory));
+        }
+    }
+
+    function scrollToBottom() {
+        var historyDiv = document.getElementById('messageHistory');
+        historyDiv.scrollTop = historyDiv.scrollHeight;
+    }
+
+    function sendMessage() {
+        var userInput = document.getElementById('userInput');
+        var messageText = userInput.value.trim();
+        if(!messageText) return;
+
+        var apiKey = localStorage.getItem(API_KEY_ID);
+        if(!apiKey) {
+            alert('Please enter your OpenRouter API key');
+            apiKeyInput.focus();
+            return;
+        }
+
+        var selectedModel = modelSelector.value;
+        if (!selectedModel || selectedModel === 'Loading models...' || selectedModel === 'Failed to fetch models' || selectedModel === 'Error loading models') {
+            alert('Please select a valid model from the list.');
+            return;
+        }
+
+        userInput.disabled = true;
+        document.getElementById('sendButton').disabled = true;
+        document.body.classList.add('loading');
+
+        addMessage('user', messageText);
+        userInput.value = '';
+
+        var xhr = new XMLHttpRequest();
+        var apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+        xhr.open('POST', apiUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + apiKey);
+        xhr.setRequestHeader('HTTP-Referer', 'https://your-site.com'); // Optional but recommended
+        xhr.setRequestHeader('X-Title', 'BB Passport Client'); // Optional
+
+        xhr.onreadystatechange = function() {
+            if(xhr.readyState === 4) {
+                userInput.disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                document.body.classList.remove('loading');
+
+                if(xhr.status === 200) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        var responseText = response.choices[0].message.content;
+                        addMessage('assistant', responseText);
+                    } catch(e) {
+                        addStatusMessage('Error processing response: ' + e.message);
+                    }
+                } else {
+                    var errorMsg = 'Error: ';
+                    try {
+                        var error = JSON.parse(xhr.responseText);
+                        errorMsg += error.error.message;
+                    } catch(e) {
+                        errorMsg += 'Failed to send message. Status: ' + xhr.status;
+                    }
+                    addStatusMessage(errorMsg);
+                }
+                userInput.focus();
+            }
+        };
+
+        xhr.onerror = function() {
+            addStatusMessage('Network error occurred');
+            userInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.body.classList.remove('loading');
+            userInput.focus();
+        };
+
+        try {
+            // Transform for OpenAI/OpenRouter format
+            var apiMessages = messageHistory.map(function(msg) {
+                return {
+                    role: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content
+                };
+            });
+
+            var data = {
+                model: selectedModel,
+                messages: apiMessages
+            };
+
+            xhr.send(JSON.stringify(data));
+        } catch(e) {
+            addStatusMessage('Error sending message: ' + e.message);
+            userInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.body.classList.remove('loading');
+            userInput.focus();
+        }
+    }
+
+    function clearAllMessages() {
+        if(confirm('Clear all messages?')) {
+            messageHistory = [];
+            localStorage.removeItem(HISTORY_ID);
+            document.getElementById('messageHistory').innerHTML = '';
+            addStatusMessage('Messages cleared');
+        }
+    }
+
+    document.getElementById('userInput').onkeypress = function(e) {
+        if((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    };
+
+    // Run initialization function on page load
+    init();
+
+    </script>
+</body>
+</html>
+```
