@@ -1,4 +1,4 @@
-# BalckBerry OpenRouter Chatbot Client
+# BlackBerry OpenRouter Chatbot Client
 
 This is an AI Chatbot client using OpenRouter for the Blackberry Passport. Although it was designed for the BlackBerry Passport but should also work on other devices.
 
