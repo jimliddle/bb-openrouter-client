@@ -2,6 +2,8 @@
 
 This is an AI Chatbot client using OpenRouter for the Blackberry Passport. Although it was designed for the BlackBerry Passport but should also work on other devices.
 
+Avaialable at: https://jimliddle.github.io/bb-openrouter-client/
+
 Simply enter your OpenRouter API key, select the model you want to interact with and start asking questions.
 
 It works in a similar way to the other BB chatbot clients I have built in which the state of the chat is stored in the BlackBerry Browser (which has its limits). Chats can also be cleared as needed.
